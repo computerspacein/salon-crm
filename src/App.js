@@ -9,6 +9,7 @@ import Invoices from './pages/Invoices'
 import Expenses from './pages/Expenses'
 import Services from './pages/Services'
 import Branches from './pages/Branches'
+import Loyalty from './pages/Loyalty'
 import './App.css'
 
 const NAV = [
@@ -16,6 +17,7 @@ const NAV = [
   { path: '/', label: 'Dashboard', icon: '⊞' },
   { path: '/appointments', label: 'Appointments', icon: '📅' },
   { path: '/customers', label: 'Customers', icon: '👥' },
+  { path: '/loyalty', label: 'Loyalty Program', icon: '🏆' },
   { path: '/staff', label: 'Staff', icon: '👤' },
   { section: 'Finance' },
   { path: '/accounting', label: 'Accounting', icon: '📊' },
@@ -39,9 +41,7 @@ function Sidebar({ branch, setBranch, branches }) {
       <div className="branch-select-wrap">
         <select value={branch} onChange={e => setBranch(e.target.value)} className="branch-select">
           <option value="all">🏢 Sab Branches</option>
-          {branches.map(b => (
-            <option key={b.id} value={b.id}>{b.name}</option>
-          ))}
+          {branches.map(b => <option key={b.id} value={b.id}>{b.name}</option>)}
         </select>
       </div>
       <nav className="nav">
@@ -49,14 +49,8 @@ function Sidebar({ branch, setBranch, branches }) {
           item.section ? (
             <div key={i} className="nav-section">{item.section}</div>
           ) : (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}
-            >
-              <span className="nav-icon">{item.icon}</span>
-              {item.label}
+            <NavLink key={item.path} to={item.path} end={item.path === '/'} className={({ isActive }) => 'nav-item' + (isActive ? ' active' : '')}>
+              <span className="nav-icon">{item.icon}</span>{item.label}
             </NavLink>
           )
         )}
@@ -64,10 +58,7 @@ function Sidebar({ branch, setBranch, branches }) {
       <div className="sidebar-footer">
         <div className="sidebar-user">
           <div className="user-avatar">A</div>
-          <div>
-            <div className="user-name">Admin</div>
-            <div className="user-role">Owner</div>
-          </div>
+          <div><div className="user-name">Admin</div><div className="user-role">Owner</div></div>
         </div>
       </div>
     </aside>
@@ -91,6 +82,7 @@ function AppInner() {
           <Route path="/" element={<Dashboard {...ctx} />} />
           <Route path="/appointments" element={<Appointments {...ctx} />} />
           <Route path="/customers" element={<Customers {...ctx} />} />
+          <Route path="/loyalty" element={<Loyalty {...ctx} />} />
           <Route path="/staff" element={<Staff {...ctx} />} />
           <Route path="/accounting" element={<Accounting {...ctx} />} />
           <Route path="/invoices" element={<Invoices {...ctx} />} />
@@ -104,9 +96,5 @@ function AppInner() {
 }
 
 export default function App() {
-  return (
-    <BrowserRouter>
-      <AppInner />
-    </BrowserRouter>
-  )
+  return <BrowserRouter><AppInner /></BrowserRouter>
 }
