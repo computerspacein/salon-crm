@@ -18,20 +18,37 @@ export default function Services() {
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(BLANK)
   const [catFilter, setCatFilter] = useState('all')
+  const [editItem, setEditItem] = useState(null)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
 
   const filtered = catFilter === 'all' ? services : services.filter(s => s.category === catFilter)
 
   const save = () => {
     if (!form.name || !form.priceMin) return
-    setServices(p => [...p, { ...form, id: Date.now(), active: true, priceMin: Number(form.priceMin), priceMax: Number(form.priceMax) }])
-    setModal(false); setForm(BLANK)
+    if (editItem) {
+      setServices(p => p.map(s => s.id === editItem.id ? { ...s, ...form, priceMin: Number(form.priceMin), priceMax: Number(form.priceMax), duration: Number(form.duration) } : s))
+    } else {
+      setServices(p => [...p, { ...form, id: Date.now(), active: true, priceMin: Number(form.priceMin), priceMax: Number(form.priceMax), duration: Number(form.duration) }])
+    }
+    setModal(false); setForm(BLANK); setEditItem(null)
+  }
+
+  const openEdit = (s) => {
+    setEditItem(s)
+    setForm({ name: s.name, category: s.category, duration: s.duration, priceMin: s.priceMin, priceMax: s.priceMax })
+    setModal(true)
+  }
+
+  const deleteService = (id) => {
+    setServices(p => p.filter(s => s.id !== id))
+    setDeleteConfirm(null)
   }
 
   return (
     <div className="page">
       <div className="page-header">
         <div><div className="page-title">Services & Pricing</div><div className="page-sub">{services.length} services</div></div>
-        <button className="btn btn-primary" onClick={() => setModal(true)}>+ Add Service</button>
+        <button className="btn btn-primary" onClick={() => { setEditItem(null); setForm(BLANK); setModal(true) }}>+ Add Service</button>
       </div>
       <div className="filter-bar">
         <select className="select" value={catFilter} onChange={e => setCatFilter(e.target.value)}>
@@ -42,7 +59,7 @@ export default function Services() {
       <div className="card">
         <div className="table-wrap">
           <table className="data-table">
-            <thead><tr><th>Service Name</th><th>Category</th><th>Duration</th><th>Min Price</th><th>Max Price</th><th>Status</th></tr></thead>
+            <thead><tr><th>Service Name</th><th>Category</th><th>Duration</th><th>Min Price</th><th>Max Price</th><th>Status</th><th>Actions</th></tr></thead>
             <tbody>
               {filtered.map(s => (
                 <tr key={s.id}>
@@ -52,16 +69,26 @@ export default function Services() {
                   <td className="mono">₹{s.priceMin.toLocaleString('en-IN')}</td>
                   <td className="mono">₹{s.priceMax.toLocaleString('en-IN')}</td>
                   <td><span className={`badge ${s.active ? 'badge-success' : 'badge-danger'}`}>{s.active ? 'Active' : 'Inactive'}</span></td>
+                  <td>
+                    <div className="flex-gap">
+                      <button className="btn btn-sm" onClick={() => openEdit(s)}>✏️</button>
+                      <button className="btn btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setDeleteConfirm(s)}>🗑️</button>
+                    </div>
+                  </td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
       </div>
+
       {modal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal">
-            <div className="modal-header"><div className="modal-title">Naya Service Add Karo</div><button className="modal-close" onClick={() => setModal(false)}>✕</button></div>
+            <div className="modal-header">
+              <div className="modal-title">{editItem ? 'Service Edit Karo' : 'Naya Service'}</div>
+              <button className="modal-close" onClick={() => { setModal(false); setEditItem(null) }}>✕</button>
+            </div>
             <div className="form-grid">
               <div className="form-group full"><label className="label">Service Name *</label><input className="input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Category</label><select className="select" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}>{CATS.map(c => <option key={c}>{c}</option>)}</select></div>
@@ -69,7 +96,28 @@ export default function Services() {
               <div className="form-group"><label className="label">Min Price (₹) *</label><input type="number" className="input" value={form.priceMin} onChange={e => setForm(p => ({ ...p, priceMin: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Max Price (₹)</label><input type="number" className="input" value={form.priceMax} onChange={e => setForm(p => ({ ...p, priceMax: e.target.value }))} /></div>
             </div>
-            <div className="gap-btn"><button className="btn btn-primary" onClick={save}>Save Service</button><button className="btn" onClick={() => setModal(false)}>Cancel</button></div>
+            <div className="gap-btn">
+              <button className="btn btn-primary" onClick={save}>{editItem ? 'Update Karo' : 'Save Karo'}</button>
+              <button className="btn" onClick={() => { setModal(false); setEditItem(null) }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDeleteConfirm(null)}>
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <div className="modal-title">Service Delete Karna Chahte Ho?</div>
+              <button className="modal-close" onClick={() => setDeleteConfirm(null)}>✕</button>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
+              <strong style={{ color: 'var(--text)' }}>{deleteConfirm.name}</strong> delete ho jayegi. Sure hain?
+            </div>
+            <div className="gap-btn">
+              <button className="btn" style={{ background: 'var(--danger)', color: 'white', borderColor: 'var(--danger)' }} onClick={() => deleteService(deleteConfirm.id)}>Haan, Delete Karo</button>
+              <button className="btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
+            </div>
           </div>
         </div>
       )}

@@ -13,19 +13,37 @@ export default function Staff() {
   const [staff, setStaff] = useState(STAFF)
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(BLANK)
+  const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [editItem, setEditItem] = useState(null)
 
   const save = () => {
     if (!form.name) return
-    setStaff(p => [...p, { ...form, id: Date.now(), status: 'off', rating: 0, clients: 0, revenue: 0, salary: Number(form.salary), commission: Number(form.commission) }])
-    setModal(false); setForm(BLANK)
+    if (editItem) {
+      setStaff(p => p.map(s => s.id === editItem.id ? { ...s, ...form, salary: Number(form.salary), commission: Number(form.commission) } : s))
+    } else {
+      setStaff(p => [...p, { ...form, id: Date.now(), status: 'off', rating: 0, clients: 0, revenue: 0, salary: Number(form.salary), commission: Number(form.commission) }])
+    }
+    setModal(false); setForm(BLANK); setEditItem(null)
+  }
+
+  const openEdit = (s) => {
+    setEditItem(s)
+    setForm({ name: s.name, role: s.role, branch: s.branch, phone: s.phone, salary: s.salary, commission: s.commission })
+    setModal(true)
+  }
+
+  const deleteStaff = (id) => {
+    setStaff(p => p.filter(s => s.id !== id))
+    setDeleteConfirm(null)
   }
 
   return (
     <div className="page">
       <div className="page-header">
         <div><div className="page-title">Staff Management</div><div className="page-sub">{staff.length} staff members</div></div>
-        <button className="btn btn-primary" onClick={() => setModal(true)}>+ Add Staff</button>
+        <button className="btn btn-primary" onClick={() => { setEditItem(null); setForm(BLANK); setModal(true) }}>+ Add Staff</button>
       </div>
+
       <div className="grid-3" style={{ marginBottom: 20 }}>
         {staff.map(s => (
           <div className="card" key={s.id}>
@@ -47,24 +65,63 @@ export default function Staff() {
               <span className="text-muted">Salary: <span className="fw-600 mono">₹{s.salary.toLocaleString('en-IN')}</span></span>
               <span className="text-muted">Commission: <span className="fw-600">{s.commission}%</span></span>
             </div>
+            <div className="divider" />
+            <div className="flex-gap" style={{ marginTop: 4 }}>
+              <button className="btn btn-sm" style={{ flex: 1 }} onClick={() => openEdit(s)}>✏️ Edit</button>
+              <button className="btn btn-sm" style={{ flex: 1, color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setDeleteConfirm(s)}>🗑️ Delete</button>
+            </div>
           </div>
         ))}
+
+        <div className="card" style={{ border: '2px dashed var(--border)', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: 200, cursor: 'pointer' }}
+          onClick={() => { setEditItem(null); setForm(BLANK); setModal(true) }}>
+          <div style={{ fontSize: 32, marginBottom: 8 }}>+</div>
+          <div style={{ fontSize: 13, color: 'var(--text-muted)' }}>Naya Staff Add Karo</div>
+        </div>
       </div>
+
+      {/* Add/Edit Modal */}
       {modal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal">
-            <div className="modal-header"><div className="modal-title">Naya Staff Member</div><button className="modal-close" onClick={() => setModal(false)}>✕</button></div>
+            <div className="modal-header">
+              <div className="modal-title">{editItem ? 'Staff Edit Karo' : 'Naya Staff Member'}</div>
+              <button className="modal-close" onClick={() => setModal(false)}>✕</button>
+            </div>
             <div className="form-grid">
               <div className="form-group"><label className="label">Naam *</label><input className="input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Role</label><input className="input" value={form.role} onChange={e => setForm(p => ({ ...p, role: e.target.value }))} /></div>
-              <div className="form-group"><label className="label">Branch</label><select className="select" value={form.branch} onChange={e => setForm(p => ({ ...p, branch: e.target.value }))}><option>Sector 17</option><option>Sector 35</option><option>Mohali</option><option>Panchkula</option></select></div>
+              <div className="form-group"><label className="label">Branch</label>
+                <select className="select" value={form.branch} onChange={e => setForm(p => ({ ...p, branch: e.target.value }))}>
+                  <option>Sector 17</option><option>Sector 35</option><option>Mohali</option><option>Panchkula</option>
+                </select>
+              </div>
               <div className="form-group"><label className="label">Phone</label><input className="input" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Monthly Salary (₹)</label><input type="number" className="input" value={form.salary} onChange={e => setForm(p => ({ ...p, salary: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Commission (%)</label><input type="number" className="input" value={form.commission} onChange={e => setForm(p => ({ ...p, commission: e.target.value }))} /></div>
             </div>
             <div className="gap-btn">
-              <button className="btn btn-primary" onClick={save}>Save Staff</button>
-              <button className="btn" onClick={() => setModal(false)}>Cancel</button>
+              <button className="btn btn-primary" onClick={save}>{editItem ? 'Update Karo' : 'Save Karo'}</button>
+              <button className="btn" onClick={() => { setModal(false); setEditItem(null); setForm(BLANK) }}>Cancel</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirm Modal */}
+      {deleteConfirm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDeleteConfirm(null)}>
+          <div className="modal" style={{ maxWidth: 400 }}>
+            <div className="modal-header">
+              <div className="modal-title">Delete Karna Chahte Ho?</div>
+              <button className="modal-close" onClick={() => setDeleteConfirm(null)}>✕</button>
+            </div>
+            <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
+              <strong style={{ color: 'var(--text)' }}>{deleteConfirm.name}</strong> ko delete karne se unka sab data hata jayega. Kya aap sure hain?
+            </div>
+            <div className="gap-btn">
+              <button className="btn" style={{ background: 'var(--danger)', color: 'white', borderColor: 'var(--danger)' }} onClick={() => deleteStaff(deleteConfirm.id)}>Haan, Delete Karo</button>
+              <button className="btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
             </div>
           </div>
         </div>
