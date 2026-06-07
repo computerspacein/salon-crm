@@ -10,6 +10,7 @@ import Expenses from './pages/Expenses'
 import Services from './pages/Services'
 import Branches from './pages/Branches'
 import Loyalty from './pages/Loyalty'
+import QuickBilling from './pages/QuickBilling'
 import { getBranches } from './lib/supabase'
 import './App.css'
 
@@ -17,6 +18,7 @@ const NAV = [
   { section: 'Main' },
   { path: '/', label: 'Dashboard', icon: '⊞' },
   { path: '/appointments', label: 'Appointments', icon: '📅' },
+  { path: '/quick-billing', label: 'Quick Billing', icon: '💵' },
   { path: '/customers', label: 'Customers', icon: '👥' },
   { path: '/loyalty', label: 'Loyalty Program', icon: '🏆' },
   { path: '/staff', label: 'Staff', icon: '👤' },
@@ -82,6 +84,7 @@ function AppInner() {
         <Routes>
           <Route path="/" element={<Dashboard {...ctx} />} />
           <Route path="/appointments" element={<Appointments {...ctx} />} />
+          <Route path="/quick-billing" element={<QuickBilling {...ctx} />} />
           <Route path="/customers" element={<Customers {...ctx} />} />
           <Route path="/loyalty" element={<Loyalty {...ctx} />} />
           <Route path="/staff" element={<Staff {...ctx} />} />
