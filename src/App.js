@@ -11,6 +11,7 @@ import Services from './pages/Services'
 import Branches from './pages/Branches'
 import Loyalty from './pages/Loyalty'
 import QuickBilling from './pages/QuickBilling'
+import Reports from './pages/Reports'
 import { getBranches } from './lib/supabase'
 import './App.css'
 
@@ -26,6 +27,7 @@ const NAV = [
   { path: '/accounting', label: 'Accounting', icon: '📊' },
   { path: '/invoices', label: 'Invoices', icon: '🧾' },
   { path: '/expenses', label: 'Expenses', icon: '📉' },
+  { path: '/reports', label: 'Service Reports', icon: '📈' },
   { section: 'Settings' },
   { path: '/services', label: 'Services & Pricing', icon: '✂️' },
   { path: '/branches', label: 'Branch Settings', icon: '🏪' },
@@ -91,6 +93,7 @@ function AppInner() {
           <Route path="/accounting" element={<Accounting {...ctx} />} />
           <Route path="/invoices" element={<Invoices {...ctx} />} />
           <Route path="/expenses" element={<Expenses {...ctx} />} />
+          <Route path="/reports" element={<Reports {...ctx} />} />
           <Route path="/services" element={<Services {...ctx} />} />
           <Route path="/branches" element={<Branches {...ctx} />} />
         </Routes>
