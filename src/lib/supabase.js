@@ -258,3 +258,37 @@ export const getDashboardData = async (branchId = 'all') => {
     topServices,
   }
 }
+
+// =============================================
+// BILL ITEMS (for auto-popular services)
+// =============================================
+export const addBillItems = async (items) => {
+  const { data, error } = await supabase.from('bill_items').insert(items).select()
+  return { data, error }
+}
+
+// Top services by bill count (auto-popular)
+export const getTopBilledServices = async (limit = 8) => {
+  const { data, error } = await supabase.from('bill_items').select('service_id, service_name')
+  if (error || !data) return { data: [], error }
+  // Count occurrences
+  const counts = {}
+  data.forEach(row => {
+    const key = row.service_id || row.service_name
+    if (!counts[key]) counts[key] = { service_id: row.service_id, service_name: row.service_name, count: 0 }
+    counts[key].count++
+  })
+  const sorted = Object.values(counts).sort((a, b) => b.count - a.count).slice(0, limit)
+  return { data: sorted, error: null }
+}
+
+// =============================================
+// SERVICE REPORTS (from bill_items)
+// =============================================
+export const getBillItemsReport = async (fromDate = null, toDate = null) => {
+  let q = supabase.from('bill_items').select('*, branches(name)')
+  if (fromDate) q = q.gte('created_at', fromDate)
+  if (toDate) q = q.lte('created_at', toDate + 'T23:59:59')
+  const { data, error } = await q
+  return { data: data || [], error }
+}

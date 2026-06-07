@@ -1,17 +1,19 @@
 import React, { useState, useEffect } from 'react'
-import { getCustomers, addCustomer, getServices, getBranches, addInvoice, updateCustomer } from '../lib/supabase'
+import { getCustomers, addCustomer, getServices, getBranches, addInvoice, updateCustomer, addBillItems, getTopBilledServices } from '../lib/supabase'
 
 export default function QuickBilling({ branch }) {
   const [customers, setCustomers] = useState([])
   const [services, setServices] = useState([])
   const [branches, setBranches] = useState([])
+  const [topServices, setTopServices] = useState([])
   const [loading, setLoading] = useState(true)
 
   const [phone, setPhone] = useState('')
   const [name, setName] = useState('')
   const [matchedCustomer, setMatchedCustomer] = useState(null)
-  const [lineItems, setLineItems] = useState([]) // {id, name, price}
-  const [discountType, setDiscountType] = useState('fixed') // fixed | percent
+  const [serviceSearch, setServiceSearch] = useState('')
+  const [lineItems, setLineItems] = useState([])
+  const [discountType, setDiscountType] = useState('fixed')
   const [discountValue, setDiscountValue] = useState(0)
   const [branchId, setBranchId] = useState('')
   const [paymentMode, setPaymentMode] = useState('Cash')
@@ -22,75 +24,84 @@ export default function QuickBilling({ branch }) {
 
   const load = async () => {
     setLoading(true)
-    const [c, s, b] = await Promise.all([getCustomers(), getServices(), getBranches()])
+    const [c, s, b, top] = await Promise.all([getCustomers(), getServices(), getBranches(), getTopBilledServices(8)])
     setCustomers(c.data || [])
     setServices(s.data || [])
     setBranches(b.data || [])
+    setTopServices(top.data || [])
     if (b.data && b.data.length) setBranchId(branch && branch !== 'all' ? branch : b.data[0].id)
     setLoading(false)
   }
 
-  // Auto-fill customer on phone change
   const onPhoneChange = (val) => {
     setPhone(val)
     const found = customers.find(c => c.phone && c.phone.replace(/[^0-9]/g, '') === val.replace(/[^0-9]/g, '') && val.length >= 6)
-    if (found) {
-      setMatchedCustomer(found)
-      setName(found.name)
-    } else {
-      setMatchedCustomer(null)
-    }
+    if (found) { setMatchedCustomer(found); setName(found.name) }
+    else { setMatchedCustomer(null) }
   }
 
-  const addService = (svc) => {
+  const addServiceToBill = (svc) => {
     setLineItems(p => [...p, { lineId: Date.now() + Math.random(), id: svc.id, name: svc.name, price: Number(svc.price_min) }])
+    setServiceSearch('')
   }
 
   const removeItem = (lineId) => setLineItems(p => p.filter(i => i.lineId !== lineId))
   const updatePrice = (lineId, price) => setLineItems(p => p.map(i => i.lineId === lineId ? { ...i, price: Number(price) } : i))
 
+  // Search filtered services
+  const searchResults = serviceSearch.trim()
+    ? services.filter(s => s.name.toLowerCase().includes(serviceSearch.toLowerCase()) || s.category.toLowerCase().includes(serviceSearch.toLowerCase()))
+    : []
+
+  // Popular chips: top billed; fallback to first 8 services if no billing history yet
+  const popularChips = topServices.length > 0
+    ? topServices.map(t => services.find(s => s.id === t.service_id) || { id: t.service_id, name: t.service_name, price_min: 0 }).filter(Boolean)
+    : services.slice(0, 8)
+
   const subtotal = lineItems.reduce((s, i) => s + Number(i.price || 0), 0)
-  const discountAmount = discountType === 'percent'
-    ? Math.round((subtotal * Number(discountValue || 0)) / 100)
-    : Number(discountValue || 0)
+  const discountAmount = discountType === 'percent' ? Math.round((subtotal * Number(discountValue || 0)) / 100) : Number(discountValue || 0)
   const total = Math.max(0, subtotal - discountAmount)
 
   const reset = () => {
     setPhone(''); setName(''); setMatchedCustomer(null); setLineItems([])
-    setDiscountType('fixed'); setDiscountValue(0); setPaymentMode('Cash')
+    setDiscountType('fixed'); setDiscountValue(0); setPaymentMode('Cash'); setServiceSearch('')
   }
 
   const generateBill = async () => {
     if (!name || lineItems.length === 0) return alert('Customer naam aur kam se kam ek service add karo')
     setSaving(true)
 
-    // 1. Customer: existing ya naya
     let customerId = matchedCustomer?.id
     let custObj = matchedCustomer
     if (!customerId) {
       const { data } = await addCustomer({ name, phone, email: '', notes: '' })
-      custObj = data?.[0]
-      customerId = custObj?.id
+      custObj = data?.[0]; customerId = custObj?.id
     }
 
-    // 2. Invoice banao (GST = 0, no tax)
     const servicesText = lineItems.map(i => i.name).join(', ')
     const invoicePayload = {
       invoice_number: `BILL-${Date.now().toString().slice(-6)}`,
-      customer_id: customerId || null,
-      branch_id: branchId || null,
-      subtotal: subtotal,
-      discount: discountAmount,
-      gst_pct: 0,
-      gst_amount: 0,
-      total: total,
-      payment_mode: paymentMode,
-      status: 'paid',
+      customer_id: customerId || null, branch_id: branchId || null,
+      subtotal, discount: discountAmount, gst_pct: 0, gst_amount: 0, total,
+      payment_mode: paymentMode, status: 'paid',
       invoice_date: new Date().toISOString().slice(0, 10),
     }
     const { data: invData } = await addInvoice(invoicePayload)
+    const invoiceId = invData?.[0]?.id
 
-    // 3. Loyalty points update (10 per ₹100 + 50 visit bonus)
+    // Save bill items (for auto-popular tracking)
+    if (invoiceId) {
+      const items = lineItems.map(i => ({
+        invoice_id: invoiceId,
+        service_id: i.id || null,
+        service_name: i.name,
+        price: i.price,
+        branch_id: branchId || null,
+      }))
+      await addBillItems(items)
+    }
+
+    // Loyalty points
     if (customerId && custObj) {
       const earned = Math.floor(total / 100) * 10 + 50
       await updateCustomer(customerId, {
@@ -101,12 +112,7 @@ export default function QuickBilling({ branch }) {
     }
 
     const branchName = branches.find(b => b.id === branchId)?.name || ''
-    setLastBill({
-      invoice_number: invoicePayload.invoice_number,
-      name, phone, servicesText, lineItems: [...lineItems],
-      subtotal, discountAmount, total, paymentMode, branchName,
-      date: invoicePayload.invoice_date
-    })
+    setLastBill({ invoice_number: invoicePayload.invoice_number, name, phone, servicesText, lineItems: [...lineItems], subtotal, discountAmount, total, paymentMode, branchName, date: invoicePayload.invoice_date })
     setSaving(false)
     reset()
     await load()
@@ -145,10 +151,6 @@ export default function QuickBilling({ branch }) {
 
   if (loading) return <div className="page"><div className="empty-state"><div className="empty-icon">⏳</div><div>Loading...</div></div></div>
 
-  // Group services by category
-  const byCat = {}
-  services.forEach(s => { (byCat[s.category] = byCat[s.category] || []).push(s) })
-
   return (
     <div className="page">
       <div className="page-header">
@@ -157,44 +159,60 @@ export default function QuickBilling({ branch }) {
 
       <div className="grid-60-40">
         {/* LEFT: Service Picker */}
-        <div className="card">
+        <div className="card" style={{ height: 'fit-content' }}>
           <div className="card-title">Services Chuno</div>
-          {services.length === 0 ? (
-            <div className="empty-state"><div className="text-muted">Pehle Services page pe services add karo</div></div>
-          ) : (
-            Object.keys(byCat).map(cat => (
-              <div key={cat} style={{ marginBottom: 14 }}>
-                <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', marginBottom: 6 }}>{cat}</div>
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                  {byCat[cat].map(s => (
-                    <button key={s.id} className="btn btn-sm" onClick={() => addService(s)}>
-                      + {s.name} <span className="text-muted" style={{ marginLeft: 4 }}>₹{s.price_min}</span>
-                    </button>
-                  ))}
-                </div>
+
+          {/* Search box */}
+          <div style={{ position: 'relative', marginBottom: 14 }}>
+            <input className="input" style={{ width: '100%' }} placeholder="🔍 Service search karo... (jaise: fa, thread)" value={serviceSearch} onChange={e => setServiceSearch(e.target.value)} />
+            {serviceSearch.trim() && (
+              <div style={{ position: 'absolute', top: '100%', left: 0, right: 0, background: 'white', border: '1px solid var(--border)', borderRadius: 8, marginTop: 4, maxHeight: 280, overflowY: 'auto', zIndex: 10, boxShadow: 'var(--shadow-md)' }}>
+                {searchResults.length === 0 ? (
+                  <div style={{ padding: 14, fontSize: 13, color: 'var(--text-muted)' }}>Koi service nahi mili</div>
+                ) : searchResults.map(s => (
+                  <div key={s.id} className="flex-between" style={{ padding: '10px 14px', cursor: 'pointer', borderBottom: '1px solid var(--border)' }}
+                    onClick={() => addServiceToBill(s)}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--bg)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'white'}>
+                    <span style={{ fontSize: 13 }}>{s.name} <span className="text-muted" style={{ fontSize: 11 }}>· {s.category}</span></span>
+                    <span className="mono fw-600" style={{ fontSize: 13, color: 'var(--pink)' }}>₹{s.price_min} +</span>
+                  </div>
+                ))}
               </div>
-            ))
+            )}
+          </div>
+
+          {/* Popular chips (when search empty) */}
+          {!serviceSearch.trim() && (
+            <div>
+              <div className="text-muted" style={{ fontSize: 11, fontWeight: 600, textTransform: 'uppercase', marginBottom: 8 }}>
+                {topServices.length > 0 ? '⭐ Popular Services' : 'Services'}
+              </div>
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                {popularChips.map(s => (
+                  <button key={s.id} className="btn btn-sm" onClick={() => addServiceToBill(s)}>
+                    + {s.name} <span className="text-muted" style={{ marginLeft: 4 }}>₹{s.price_min}</span>
+                  </button>
+                ))}
+              </div>
+              {services.length === 0 && <div className="empty-state" style={{ padding: 20 }}><div className="text-muted">Pehle Services page pe services add karo</div></div>}
+            </div>
           )}
         </div>
 
         {/* RIGHT: Bill */}
         <div className="card" style={{ height: 'fit-content' }}>
           <div className="card-title">Bill Banao</div>
-
-          {/* Customer */}
           <div className="form-group" style={{ marginBottom: 10 }}>
             <label className="label">Phone Number</label>
             <input className="input" placeholder="98765-43210" value={phone} onChange={e => onPhoneChange(e.target.value)} />
-            {matchedCustomer && <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✓ Existing customer mila — {matchedCustomer.loyalty_points || 0} loyalty pts</div>}
+            {matchedCustomer && <div style={{ fontSize: 11, color: 'var(--success)', marginTop: 4 }}>✓ Existing customer — {matchedCustomer.loyalty_points || 0} loyalty pts</div>}
           </div>
           <div className="form-group" style={{ marginBottom: 14 }}>
             <label className="label">Customer Name</label>
             <input className="input" placeholder="Naam" value={name} onChange={e => setName(e.target.value)} />
           </div>
-
           <div className="divider" />
-
-          {/* Line Items */}
           {lineItems.length === 0 ? (
             <div className="text-muted" style={{ fontSize: 13, textAlign: 'center', padding: '14px 0' }}>Left se services add karo</div>
           ) : (
@@ -208,10 +226,7 @@ export default function QuickBilling({ branch }) {
               ))}
             </div>
           )}
-
           <div className="divider" />
-
-          {/* Discount */}
           <div className="form-group" style={{ marginBottom: 10 }}>
             <label className="label">Discount</label>
             <div className="flex-gap">
@@ -222,8 +237,6 @@ export default function QuickBilling({ branch }) {
               <input type="number" className="input" style={{ flex: 1 }} placeholder="0" value={discountValue} onChange={e => setDiscountValue(e.target.value)} />
             </div>
           </div>
-
-          {/* Branch + Payment */}
           <div className="form-grid" style={{ marginBottom: 12 }}>
             <div className="form-group">
               <label className="label">Branch</label>
@@ -238,20 +251,16 @@ export default function QuickBilling({ branch }) {
               </select>
             </div>
           </div>
-
-          {/* Totals */}
           <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 14, marginBottom: 14 }}>
             <div className="flex-between" style={{ fontSize: 13, marginBottom: 6 }}><span className="text-muted">Subtotal</span><span className="mono">₹{subtotal.toLocaleString('en-IN')}</span></div>
             {discountAmount > 0 && <div className="flex-between" style={{ fontSize: 13, marginBottom: 6, color: 'var(--danger)' }}><span>Discount {discountType === 'percent' ? `(${discountValue}%)` : ''}</span><span className="mono">- ₹{discountAmount.toLocaleString('en-IN')}</span></div>}
             <div className="divider" />
             <div className="flex-between" style={{ fontSize: 18, fontWeight: 700, color: 'var(--pink)' }}><span>Total</span><span className="mono">₹{total.toLocaleString('en-IN')}</span></div>
           </div>
-
           <button className="btn btn-primary" style={{ width: '100%' }} onClick={generateBill} disabled={saving}>{saving ? 'Saving...' : '💵 Generate Bill'}</button>
         </div>
       </div>
 
-      {/* Success / Last Bill */}
       {lastBill && (
         <div className="card" style={{ marginTop: 16, borderColor: 'var(--success)' }}>
           <div className="flex-between">
