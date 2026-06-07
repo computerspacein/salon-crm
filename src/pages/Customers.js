@@ -1,53 +1,60 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
+import { getCustomers, addCustomer, updateCustomer, deleteCustomer } from '../lib/supabase'
 
-const INIT = [
-  { id: 1, name: 'Priya Sharma', phone: '98765-43210', email: 'priya@gmail.com', branch: 'Sector 17', visits: 28, spent: 42500, lastVisit: '2026-05-31', loyalty: 5, notes: 'Prefers Ritu for hair' },
-  { id: 2, name: 'Meena Gupta', phone: '87654-32109', email: 'meena.g@yahoo.com', branch: 'Sector 35', visits: 15, spent: 18200, lastVisit: '2026-05-31', loyalty: 4, notes: '' },
-  { id: 3, name: 'Renu Bhatia', phone: '76543-21098', email: '', branch: 'Mohali', visits: 7, spent: 8750, lastVisit: '2026-05-29', loyalty: 3, notes: '' },
-  { id: 4, name: 'Neelam Kapoor', phone: '65432-10987', email: 'neelam@gmail.com', branch: 'Sector 17', visits: 42, spent: 78300, lastVisit: '2026-05-24', loyalty: 5, notes: 'VIP — Birthday June 12' },
-  { id: 5, name: 'Sunita Arora', phone: '54321-09876', email: 's.arora@outlook.com', branch: 'Panchkula', visits: 3, spent: 2850, lastVisit: '2026-05-17', loyalty: 2, notes: '' },
-]
-
-const BLANK = { name: '', phone: '', email: '', branch: 'Sector 17', notes: '' }
+const BLANK = { name: '', phone: '', email: '', notes: '' }
 
 export default function Customers() {
-  const [customers, setCustomers] = useState(INIT)
+  const [customers, setCustomers] = useState([])
+  const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [modal, setModal] = useState(false)
   const [form, setForm] = useState(BLANK)
   const [selected, setSelected] = useState(null)
   const [editItem, setEditItem] = useState(null)
   const [deleteConfirm, setDeleteConfirm] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => { load() }, [])
+
+  const load = async () => {
+    setLoading(true)
+    const { data } = await getCustomers()
+    setCustomers(data || [])
+    setLoading(false)
+  }
 
   const filtered = customers.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
-    c.phone.includes(search)
+    c.name?.toLowerCase().includes(search.toLowerCase()) ||
+    c.phone?.includes(search)
   )
 
-  const save = () => {
+  const save = async () => {
     if (!form.name || !form.phone) return
+    setSaving(true)
     if (editItem) {
-      setCustomers(p => p.map(c => c.id === editItem.id ? { ...c, ...form } : c))
+      await updateCustomer(editItem.id, form)
     } else {
-      setCustomers(p => [{ ...form, id: Date.now(), visits: 0, spent: 0, lastVisit: '—', loyalty: 1 }, ...p])
+      await addCustomer(form)
     }
-    setModal(false); setForm(BLANK); setEditItem(null)
+    await load()
+    setModal(false); setForm(BLANK); setEditItem(null); setSaving(false)
   }
 
   const openEdit = (c) => {
     setEditItem(c)
-    setForm({ name: c.name, phone: c.phone, email: c.email, branch: c.branch, notes: c.notes })
-    setModal(true)
-    setSelected(null)
+    setForm({ name: c.name, phone: c.phone, email: c.email || '', notes: c.notes || '' })
+    setModal(true); setSelected(null)
   }
 
-  const deleteCustomer = (id) => {
-    setCustomers(p => p.filter(c => c.id !== id))
-    setDeleteConfirm(null)
-    setSelected(null)
+  const confirmDelete = async () => {
+    await deleteCustomer(deleteConfirm.id)
+    await load()
+    setDeleteConfirm(null); setSelected(null)
   }
 
-  const stars = n => '★'.repeat(n) + '☆'.repeat(5 - n)
+  const stars = n => '★'.repeat(n || 1) + '☆'.repeat(5 - (n || 1))
+
+  if (loading) return <div className="page"><div className="empty-state"><div className="empty-icon">⏳</div><div>Loading customers...</div></div></div>
 
   return (
     <div className="page">
@@ -60,44 +67,42 @@ export default function Customers() {
         <input className="input" placeholder="Naam ya phone se search karo..." value={search} onChange={e => setSearch(e.target.value)} style={{ width: 280 }} />
       </div>
 
-      <div className="card">
-        <div className="table-wrap">
-          <table className="data-table">
-            <thead>
-              <tr><th>Customer</th><th>Phone</th><th>Visits</th><th>Total Spent</th><th>Last Visit</th><th>Branch</th><th>Loyalty</th><th>Actions</th></tr>
-            </thead>
-            <tbody>
-              {filtered.map(c => (
-                <tr key={c.id}>
-                  <td>
-                    <div className="flex-gap" style={{ cursor: 'pointer' }} onClick={() => setSelected(c)}>
-                      <div className="avatar">{c.name.split(' ').map(w => w[0]).join('')}</div>
-                      <div>
-                        <div className="fw-600">{c.name}</div>
-                        <div className="text-muted">{c.email || '—'}</div>
+      {customers.length === 0 ? (
+        <div className="card"><div className="empty-state"><div className="empty-icon">👥</div><div>Koi customer nahi — pehla customer add karo!</div></div></div>
+      ) : (
+        <div className="card">
+          <div className="table-wrap">
+            <table className="data-table">
+              <thead>
+                <tr><th>Customer</th><th>Phone</th><th>Visits</th><th>Total Spent</th><th>Loyalty Pts</th><th>Actions</th></tr>
+              </thead>
+              <tbody>
+                {filtered.map(c => (
+                  <tr key={c.id}>
+                    <td>
+                      <div className="flex-gap" style={{ cursor: 'pointer' }} onClick={() => setSelected(c)}>
+                        <div className="avatar">{c.name?.split(' ').map(w => w[0]).join('')}</div>
+                        <div><div className="fw-600">{c.name}</div><div className="text-muted">{c.email || '—'}</div></div>
                       </div>
-                    </div>
-                  </td>
-                  <td>{c.phone}</td>
-                  <td className="mono">{c.visits}</td>
-                  <td className="mono fw-600">₹{c.spent.toLocaleString('en-IN')}</td>
-                  <td className="text-muted">{c.lastVisit}</td>
-                  <td>{c.branch}</td>
-                  <td style={{ color: '#f59e0b' }}>{stars(c.loyalty)}</td>
-                  <td>
-                    <div className="flex-gap">
-                      <button className="btn btn-sm" onClick={() => openEdit(c)}>✏️</button>
-                      <button className="btn btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setDeleteConfirm(c)}>🗑️</button>
-                    </div>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                    </td>
+                    <td>{c.phone}</td>
+                    <td className="mono">{c.total_visits || 0}</td>
+                    <td className="mono fw-600">₹{(c.total_spent || 0).toLocaleString('en-IN')}</td>
+                    <td className="mono" style={{ color: 'var(--pink)', fontWeight: 600 }}>{c.loyalty_points || 0}</td>
+                    <td>
+                      <div className="flex-gap">
+                        <button className="btn btn-sm" onClick={() => openEdit(c)}>✏️</button>
+                        <button className="btn btn-sm" style={{ color: 'var(--danger)', borderColor: 'var(--danger)' }} onClick={() => setDeleteConfirm(c)}>🗑️</button>
+                      </div>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* Add/Edit Modal */}
       {modal && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setModal(false)}>
           <div className="modal">
@@ -109,43 +114,35 @@ export default function Customers() {
               <div className="form-group"><label className="label">Naam *</label><input className="input" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Phone *</label><input className="input" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} /></div>
               <div className="form-group"><label className="label">Email</label><input className="input" value={form.email} onChange={e => setForm(p => ({ ...p, email: e.target.value }))} /></div>
-              <div className="form-group"><label className="label">Preferred Branch</label>
-                <select className="select" value={form.branch} onChange={e => setForm(p => ({ ...p, branch: e.target.value }))}>
-                  <option>Sector 17</option><option>Sector 35</option><option>Mohali</option><option>Panchkula</option>
-                </select>
-              </div>
               <div className="form-group full"><label className="label">Notes</label><textarea className="textarea" value={form.notes} onChange={e => setForm(p => ({ ...p, notes: e.target.value }))} /></div>
             </div>
             <div className="gap-btn">
-              <button className="btn btn-primary" onClick={save}>{editItem ? 'Update Karo' : 'Save Karo'}</button>
+              <button className="btn btn-primary" onClick={save} disabled={saving}>{saving ? 'Saving...' : editItem ? 'Update Karo' : 'Save Karo'}</button>
               <button className="btn" onClick={() => { setModal(false); setEditItem(null) }}>Cancel</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Detail Modal */}
       {selected && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setSelected(null)}>
           <div className="modal">
             <div className="modal-header">
               <div className="flex-gap">
-                <div className="avatar avatar-lg">{selected.name.split(' ').map(w => w[0]).join('')}</div>
-                <div><div className="modal-title">{selected.name}</div><div className="text-muted">{selected.branch}</div></div>
+                <div className="avatar avatar-lg">{selected.name?.split(' ').map(w => w[0]).join('')}</div>
+                <div><div className="modal-title">{selected.name}</div><div className="text-muted">{selected.phone}</div></div>
               </div>
               <button className="modal-close" onClick={() => setSelected(null)}>✕</button>
             </div>
             <div className="stats-row">
-              <div className="stat-box"><div className="stat-val">{selected.visits}</div><div className="stat-label">Total Visits</div></div>
-              <div className="stat-box"><div className="stat-val">₹{(selected.spent / 1000).toFixed(0)}K</div><div className="stat-label">Total Spent</div></div>
-              <div className="stat-box"><div className="stat-val" style={{ color: '#f59e0b' }}>{'★'.repeat(selected.loyalty)}</div><div className="stat-label">Loyalty</div></div>
+              <div className="stat-box"><div className="stat-val">{selected.total_visits || 0}</div><div className="stat-label">Total Visits</div></div>
+              <div className="stat-box"><div className="stat-val">₹{Math.round((selected.total_spent || 0) / 1000)}K</div><div className="stat-label">Total Spent</div></div>
+              <div className="stat-box"><div className="stat-val" style={{ color: 'var(--pink)' }}>{selected.loyalty_points || 0}</div><div className="stat-label">Loyalty Pts</div></div>
             </div>
             <div className="divider" />
             <div style={{ fontSize: 13 }}>
-              <div className="flex-gap" style={{ marginBottom: 8 }}><span className="text-muted" style={{ width: 100 }}>Phone:</span><span>{selected.phone}</span></div>
-              <div className="flex-gap" style={{ marginBottom: 8 }}><span className="text-muted" style={{ width: 100 }}>Email:</span><span>{selected.email || '—'}</span></div>
-              <div className="flex-gap" style={{ marginBottom: 8 }}><span className="text-muted" style={{ width: 100 }}>Last Visit:</span><span>{selected.lastVisit}</span></div>
-              {selected.notes && <div className="flex-gap"><span className="text-muted" style={{ width: 100 }}>Notes:</span><span>{selected.notes}</span></div>}
+              <div className="flex-gap" style={{ marginBottom: 8 }}><span className="text-muted" style={{ width: 80 }}>Email:</span><span>{selected.email || '—'}</span></div>
+              {selected.notes && <div className="flex-gap"><span className="text-muted" style={{ width: 80 }}>Notes:</span><span>{selected.notes}</span></div>}
             </div>
             <div className="gap-btn" style={{ marginTop: 16 }}>
               <button className="btn btn-primary" onClick={() => openEdit(selected)}>✏️ Edit</button>
@@ -155,7 +152,6 @@ export default function Customers() {
         </div>
       )}
 
-      {/* Delete Confirm */}
       {deleteConfirm && (
         <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setDeleteConfirm(null)}>
           <div className="modal" style={{ maxWidth: 400 }}>
@@ -164,10 +160,10 @@ export default function Customers() {
               <button className="modal-close" onClick={() => setDeleteConfirm(null)}>✕</button>
             </div>
             <div style={{ fontSize: 14, color: 'var(--text-muted)', marginBottom: 20 }}>
-              <strong style={{ color: 'var(--text)' }}>{deleteConfirm.name}</strong> ka sab data delete ho jayega. Kya aap sure hain?
+              <strong>{deleteConfirm.name}</strong> permanently delete ho jayega.
             </div>
             <div className="gap-btn">
-              <button className="btn" style={{ background: 'var(--danger)', color: 'white', borderColor: 'var(--danger)' }} onClick={() => deleteCustomer(deleteConfirm.id)}>Haan, Delete Karo</button>
+              <button className="btn" style={{ background: 'var(--danger)', color: 'white', borderColor: 'var(--danger)' }} onClick={confirmDelete}>Haan, Delete Karo</button>
               <button className="btn" onClick={() => setDeleteConfirm(null)}>Cancel</button>
             </div>
           </div>
