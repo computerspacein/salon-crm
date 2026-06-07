@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { BrowserRouter, Routes, Route, NavLink } from 'react-router-dom'
 import Dashboard from './pages/Dashboard'
 import Appointments from './pages/Appointments'
@@ -10,6 +10,7 @@ import Expenses from './pages/Expenses'
 import Services from './pages/Services'
 import Branches from './pages/Branches'
 import Loyalty from './pages/Loyalty'
+import { getBranches } from './lib/supabase'
 import './App.css'
 
 const NAV = [
@@ -67,12 +68,12 @@ function Sidebar({ branch, setBranch, branches }) {
 
 function AppInner() {
   const [branch, setBranch] = useState('all')
-  const [branches] = useState([
-    { id: 'b1', name: 'Sector 17, Chandigarh' },
-    { id: 'b2', name: 'Sector 35, Chandigarh' },
-    { id: 'b3', name: 'Phase 7, Mohali' },
-    { id: 'b4', name: 'Panchkula, Sec 9' },
-  ])
+  const [branches, setBranches] = useState([])
+
+  useEffect(() => {
+    getBranches().then(({ data }) => setBranches(data || []))
+  }, [])
+
   const ctx = { branch, setBranch, branches }
   return (
     <div className="app-shell">

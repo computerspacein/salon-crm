@@ -198,3 +198,63 @@ export const getDashboardStats = async () => {
     totalCustomers: customers.count || 0,
   }
 }
+
+// =============================================
+// FULL DASHBOARD DATA (branch-aware)
+// =============================================
+export const getDashboardData = async (branchId = 'all') => {
+  const today = new Date().toISOString().slice(0, 10)
+  const thisMonth = today.slice(0, 7)
+  const monthStart = thisMonth + '-01'
+
+  let invQ = supabase.from('invoices').select('*, branches(name)').gte('invoice_date', monthStart)
+  let apptQ = supabase.from('appointments').select('*, customers(name, phone), staff(name), services(name), branches(name)').eq('appointment_date', today)
+  let custQ = supabase.from('customers').select('id', { count: 'exact', head: true })
+  let expQ = supabase.from('expenses').select('amount').gte('expense_date', monthStart)
+  let branchQ = supabase.from('branches').select('*')
+  let monthApptQ = supabase.from('appointments').select('final_amount, services(name), branch_id').gte('appointment_date', monthStart)
+
+  if (branchId && branchId !== 'all') {
+    invQ = invQ.eq('branch_id', branchId)
+    apptQ = apptQ.eq('branch_id', branchId)
+    expQ = expQ.eq('branch_id', branchId)
+    monthApptQ = monthApptQ.eq('branch_id', branchId)
+  }
+
+  const [inv, appt, cust, exp, branchesRes, monthAppt] = await Promise.all([invQ, apptQ, custQ, expQ, branchQ, monthApptQ])
+
+  const invoices = inv.data || []
+  const todayAppts = appt.data || []
+  const branches = branchesRes.data || []
+  const monthAppts = monthAppt.data || []
+
+  const todayRevenue = invoices.filter(i => i.invoice_date === today && i.status === 'paid').reduce((s, i) => s + Number(i.total), 0)
+  const monthRevenue = invoices.filter(i => i.status === 'paid').reduce((s, i) => s + Number(i.total), 0)
+  const monthExpenses = (exp.data || []).reduce((s, e) => s + Number(e.amount), 0)
+
+  // Branch-wise revenue (this month, paid invoices)
+  const branchWise = branches.map(b => ({
+    name: b.name,
+    revenue: invoices.filter(i => i.branch_id === b.id && i.status === 'paid').reduce((s, i) => s + Number(i.total), 0)
+  }))
+
+  // Top services (this month, by appointment final_amount)
+  const svcMap = {}
+  monthAppts.forEach(a => {
+    const name = a.services?.name || 'Other'
+    svcMap[name] = (svcMap[name] || 0) + Number(a.final_amount || 0)
+  })
+  const topServices = Object.entries(svcMap).map(([name, revenue]) => ({ name, revenue })).sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+
+  return {
+    todayRevenue,
+    monthRevenue,
+    monthExpenses,
+    netProfit: monthRevenue - monthExpenses,
+    todayApptsCount: todayAppts.length,
+    todayApptsList: todayAppts,
+    totalCustomers: cust.count || 0,
+    branchWise,
+    topServices,
+  }
+}
