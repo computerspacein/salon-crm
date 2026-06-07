@@ -111,7 +111,7 @@ export default function Invoices() {
         .footer { margin-top: 40px; text-align: center; color: #7c6d9a; font-size: 12px; }
       </style></head><body>
       <div class="header">
-        <div><div class="logo">✂ GlamSync</div><div style="color:#7c6d9a">${branchName}</div></div>
+        <div><div class="logo">✂ Scissors Masterz</div><div style="color:#7c6d9a">${branchName}</div></div>
         <div style="text-align:right"><div style="font-size:20px;font-weight:700">${inv.invoice_number}</div><div style="color:#7c6d9a">${inv.invoice_date}</div></div>
       </div>
       <div style="margin:20px 0"><div style="color:#7c6d9a;font-size:12px">BILL TO</div><div style="font-weight:600;font-size:16px">${custName}</div><div style="color:#7c6d9a">${custPhone}</div></div>
@@ -121,7 +121,7 @@ export default function Invoices() {
         <tr><td style="color:#7c6d9a">GST (${inv.gst_pct}%)</td><td style="text-align:right;color:#7c6d9a">₹${Number(inv.gst_amount).toLocaleString('en-IN')}</td></tr>
         <tr class="total-row"><td>Total</td><td style="text-align:right;color:#E91E8C">₹${Number(inv.total).toLocaleString('en-IN')}</td></tr>
       </table>
-      <div class="footer">GlamSync Salon — ${branchName}<br>Dhanyavaad! Aapka dobara swagat hai 🙏</div>
+      <div class="footer">Scissors Masterz Salon — ${branchName}<br>Dhanyavaad! Aapka dobara swagat hai 🙏</div>
       </body></html>
     `
     const w = window.open('', '_blank')
@@ -266,7 +266,7 @@ export default function Invoices() {
             <div className="modal-header"><div className="modal-title">Invoice Preview</div><button className="modal-close" onClick={() => setPreview(null)}>✕</button></div>
             <div style={{ background: 'var(--bg)', borderRadius: 10, padding: 20 }}>
               <div className="flex-between" style={{ marginBottom: 16 }}>
-                <div><div style={{ fontSize: 22, fontWeight: 700, color: 'var(--pink)' }}>✂ GlamSync</div><div className="text-muted">{preview.branches?.name || ''}</div></div>
+                <div><div style={{ fontSize: 22, fontWeight: 700, color: 'var(--pink)' }}>✂ Scissors Masterz</div><div className="text-muted">{preview.branches?.name || ''}</div></div>
                 <div style={{ textAlign: 'right' }}><div className="fw-600 mono">{preview.invoice_number}</div><div className="text-muted">{preview.invoice_date}</div>{STATUS_BADGE[preview.status]}</div>
               </div>
               <div className="divider" />

@@ -35,7 +35,7 @@ function Sidebar({ branch, setBranch, branches }) {
       <div className="logo">
         <div className="logo-icon">✂</div>
         <div>
-          <div className="logo-name">GlamSync</div>
+          <div className="logo-name">Scissors Masterz</div>
           <div className="logo-sub">Salon CRM</div>
         </div>
       </div>
