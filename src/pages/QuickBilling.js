@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'
 import { getCustomers, addCustomer, getServices, getBranches, addInvoice, updateCustomer, addBillItems, getTopBilledServices } from '../lib/supabase'
 
-export default function QuickBilling({ branch }) {
+export default function QuickBilling({ branch, currentUser }) {
   const [customers, setCustomers] = useState([])
   const [services, setServices] = useState([])
   const [branches, setBranches] = useState([])
@@ -85,6 +85,8 @@ export default function QuickBilling({ branch }) {
       subtotal, discount: discountAmount, gst_pct: 0, gst_amount: 0, total,
       payment_mode: paymentMode, status: 'paid',
       invoice_date: new Date().toISOString().slice(0, 10),
+      billed_by_id: currentUser?.id || null,
+      billed_by_name: currentUser?.name || null,
     }
     const { data: invData } = await addInvoice(invoicePayload)
     const invoiceId = invData?.[0]?.id
@@ -97,6 +99,7 @@ export default function QuickBilling({ branch }) {
         service_name: i.name,
         price: i.price,
         branch_id: branchId || null,
+        billed_by_name: currentUser?.name || null,
       }))
       await addBillItems(items)
     }

@@ -292,3 +292,48 @@ export const getBillItemsReport = async (fromDate = null, toDate = null) => {
   const { data, error } = await q
   return { data: data || [], error }
 }
+
+// =============================================
+// AUTH / APP USERS
+// =============================================
+export const sha256 = async (text) => {
+  const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))
+  return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
+export const loginUser = async (username, password) => {
+  const hash = await sha256(password)
+  const { data, error } = await supabase.from('app_users')
+    .select('*')
+    .eq('username', username.trim().toLowerCase())
+    .eq('password_hash', hash)
+    .eq('is_active', true)
+    .maybeSingle()
+  return { data, error }
+}
+
+export const getUsers = async () => {
+  const { data, error } = await supabase.from('app_users').select('id, username, name, role, is_active, created_at').order('created_at')
+  return { data, error }
+}
+
+export const addUser = async ({ username, password, name, role }) => {
+  const password_hash = await sha256(password)
+  const { data, error } = await supabase.from('app_users')
+    .insert([{ username: username.trim().toLowerCase(), password_hash, name, role }]).select()
+  return { data, error }
+}
+
+export const updateUserAccount = async (id, updates) => {
+  if (updates.password) {
+    updates.password_hash = await sha256(updates.password)
+    delete updates.password
+  }
+  const { data, error } = await supabase.from('app_users').update(updates).eq('id', id).select()
+  return { data, error }
+}
+
+export const deleteUserAccount = async (id) => {
+  const { error } = await supabase.from('app_users').delete().eq('id', id)
+  return { error }
+}

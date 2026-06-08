@@ -14,7 +14,7 @@ const BLANK = {
   payment_mode: 'Cash', status: 'paid'
 }
 
-export default function Invoices() {
+export default function Invoices({ currentUser }) {
   const [invoices, setInvoices] = useState([])
   const [customers, setCustomers] = useState([])
   const [branches, setBranches] = useState([])
@@ -69,7 +69,9 @@ export default function Invoices() {
       total: totalAmount,
       payment_mode: form.payment_mode,
       status: form.status,
-      invoice_date: form.invoice_date
+      invoice_date: form.invoice_date,
+      billed_by_id: editItem ? editItem.billed_by_id : (currentUser?.id || null),
+      billed_by_name: editItem ? editItem.billed_by_name : (currentUser?.name || null),
     }
     if (editItem) { await updateInvoice(editItem.id, payload) }
     else { await addInvoice(payload) }
@@ -164,7 +166,7 @@ export default function Invoices() {
           <div className="table-wrap">
             <table className="data-table">
               <thead>
-                <tr><th>Invoice #</th><th>Customer</th><th>Branch</th><th>Date</th><th>Subtotal</th><th>GST</th><th>Total</th><th>Payment</th><th>Status</th><th>Actions</th></tr>
+                <tr><th>Invoice #</th><th>Customer</th><th>Branch</th><th>Date</th><th>Subtotal</th><th>GST</th><th>Total</th><th>Payment</th><th>Billed By</th><th>Status</th><th>Actions</th></tr>
               </thead>
               <tbody>
                 {filtered.map(inv => (
@@ -177,6 +179,7 @@ export default function Invoices() {
                     <td className="mono text-muted">₹{Number(inv.gst_amount).toLocaleString('en-IN')}</td>
                     <td className="mono fw-600">₹{Number(inv.total).toLocaleString('en-IN')}</td>
                     <td>{inv.payment_mode}</td>
+                    <td className="text-muted">{inv.billed_by_name || '—'}</td>
                     <td>{STATUS_BADGE[inv.status]}</td>
                     <td>
                       <div className="flex-gap">

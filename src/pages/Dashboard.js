@@ -11,7 +11,8 @@ const STATUS_DOT = {
 
 const SVC_COLORS = ['#E91E8C', '#6366f1', '#f59e0b', '#22c55e', '#8b5cf6']
 
-export default function Dashboard({ branch, branches }) {
+export default function Dashboard({ branch, branches, currentUser }) {
+  const isAdmin = currentUser?.role === 'admin'
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -58,14 +59,16 @@ export default function Dashboard({ branch, branches }) {
           <div className="metric-value">{data.totalCustomers.toLocaleString('en-IN')}</div>
           <div className="metric-change up">Database mein</div>
         </div>
-        <div className="metric">
-          <div className="metric-label">Is Mahine Revenue</div>
-          <div className="metric-value">₹{data.monthRevenue.toLocaleString('en-IN')}</div>
-          <div className="metric-change up">Net Profit: ₹{data.netProfit.toLocaleString('en-IN')}</div>
-        </div>
+        {isAdmin && (
+          <div className="metric">
+            <div className="metric-label">Is Mahine Revenue</div>
+            <div className="metric-value">₹{data.monthRevenue.toLocaleString('en-IN')}</div>
+            <div className="metric-change up">Net Profit: ₹{data.netProfit.toLocaleString('en-IN')}</div>
+          </div>
+        )}
       </div>
 
-      <div className="grid-60-40 mb-24">
+      {isAdmin && <div className="grid-60-40 mb-24">
         <div className="card">
           <div className="card-title">Branch-wise Revenue (Is Mahine)</div>
           {data.branchWise.every(b => b.revenue === 0) ? (
@@ -99,7 +102,7 @@ export default function Dashboard({ branch, branches }) {
             ))
           )}
         </div>
-      </div>
+      </div>}
 
       <div className="card">
         <div className="card-title">
